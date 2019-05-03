@@ -14,6 +14,7 @@ Based on a template for kick starting a Cloudflare worker project using
 
 - Build: `wrangler build`
 - Preview in Chrome: `wrangler preview`
+- Run tests: `wasm-pack test --node`
 - Test in headless Safari: `wasm-pack test --headless --safari`
 
 ## Included dependencies

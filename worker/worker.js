@@ -1,4 +1,7 @@
 addEventListener('fetch', event => {
+  // we don't allow passthrough on errors as there is no underlying service that can answer the request
+  // event.passThroughOnException()
+
   event.respondWith(handleRequest(event.request))
 })
 
@@ -7,8 +10,11 @@ addEventListener('fetch', event => {
  * @param {Request} request
  */
 async function handleRequest(request) {
-    const { greet } = wasm_bindgen;
+    const { greet, parse } = wasm_bindgen;
     await wasm_bindgen(wasm)
     const greeting = greet()
-    return new Response(greeting, {status: 200})
+    const output = parse()
+    let res = new Response(greeting + "\n" + output, {status: 200})
+    res.headers.set("Content-type", "text/html")
+    return res
 }
