@@ -1,11 +1,17 @@
 extern crate cfg_if;
 extern crate wasm_bindgen;
+extern crate serde_json;
 
+mod linreg;
+mod math;
 mod utils;
 
+#[macro_use]
+extern crate serde_derive;
+
 use cfg_if::cfg_if;
+use linreg::LinearRegression;
 use wasm_bindgen::prelude::*;
-use pulldown_cmark::{Parser, Options, html};
 
 cfg_if! {
     // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -17,29 +23,31 @@ cfg_if! {
     }
 }
 
-#[wasm_bindgen]
-pub fn greet() -> String {
-    "Hello, wasm-worker!".to_string()
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LinearResult {
+    coeficient: f32, 
+    intercept: f32, 
+    accuracy: f32, 
+    y_predictions: Vec<f32>
 }
 
 #[wasm_bindgen]
-pub fn parse() -> String {
-    let markdown_input: &str = "Hello world, this is a ~~complicated~~ *very simple* example.";
-    println!("Parsing the following markdown string:\n{}", markdown_input);
+pub fn linear_regression(x_input: Box<[f32]>, y_input : Box<[f32]>, x_predict: Box<[f32]>) -> JsValue {
+    let mut model = LinearRegression::new();
+    let x_values = x_input.into_vec();
+    let y_values = y_input.into_vec();
+    model.fit(&x_values, &y_values);
 
-    // Set up options and parser. Strikethroughs are not part of the CommonMark standard
-    // and we therefore must enable it explicitly.
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    let parser = Parser::new_ext(markdown_input, options);
+    // the unwraps aren't great but for brevity
+    let coeficient = model.coefficient.unwrap();
+    let intercept = model.intercept.unwrap();
+    let accuracy = model.evaluate(&x_values, &y_values);
 
-    // Write to String buffer.
-    let mut html_output: String = String::with_capacity(markdown_input.len() * 3 / 2);
-    html::push_html(&mut html_output, parser);
+    let x_predict_vec = x_predict.into_vec();
+    let y_predictions : Vec<f32> = model.predict_list(&x_predict_vec);
+    
+    let result = LinearResult { coeficient, intercept, accuracy, y_predictions };
 
-    // Check that the output is what we expected.
-    let expected_html: &str = "<p>Hello world, this is a <del>complicated</del> <em>very simple</em> example.</p>\n";
-    assert_eq!(expected_html, &html_output);
-
-    format!("\nHTML output:\n{}", &html_output)
+    // due to wasm not allowing us to return a tuple with an array we serialise the output
+    JsValue::from_serde(&result).unwrap()
 }
